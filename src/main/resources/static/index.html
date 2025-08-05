@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Spring Batch Job Controller</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-10" x-data="batchApp()">
+
+    <div class="max-w-xl mx-auto bg-white p-6 shadow rounded-lg">
+        <h1 class="text-2xl mb-4">Spring Batch Job</h1>
+
+        <div class="mb-4">
+            <label>Input XML Path:</label>
+            <input type="text" x-model="inputPath" class="border p-2 w-full"/>
+        </div>
+
+        <div class="mb-4">
+            <label>Output CSV Path:</label>
+            <input type="text" x-model="outputPath" class="border p-2 w-full"/>
+        </div>
+
+        <button @click="startJob"
+                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Start Job
+        </button>
+
+        <div class="mt-6">
+            <h2 class="text-xl">Job Status:</h2>
+            <p class="mt-2"><strong x-text="jobStatus"></strong></p>
+        </div>
+
+        <div class="mt-4">
+            <h2 class="text-xl">Progress Log:</h2>
+            <ul class="mt-2 bg-gray-50 p-4 rounded h-48 overflow-auto">
+                <template x-for="log in progressLog" :key="log">
+                    <li x-text="log"></li>
+                </template>
+            </ul>
+        </div>
+
+        <div class="mt-4">
+            <h2 class="text-xl">Statistics:</h2>
+            <p><strong>Proteins:</strong> <span x-text="proteinCount"></span></p>
+            <p><strong>Peptides:</strong> <span x-text="peptideCount"></span></p>
+        </div>
+    </div>
+
+    <script>
+        function batchApp() {
+            return {
+                inputPath: '/media/tag/D/digested-db/uniprot_sprot.xml.gz',
+                outputPath: '/media/tag/D/digested-db/uniprot_sprot.xml.gz.cvs',
+                jobStatus: 'Not Started',
+                progressLog: [],
+                proteinCount: 0,
+                peptideCount: 0,
+
+                startJob() {
+                    fetch(`/job/start?inputPath=${encodeURIComponent(this.inputPath)}&outputPath=${encodeURIComponent(this.outputPath)}`, {
+                        method: 'POST'
+                    })
+                    .then(resp => resp.text())
+                    .then(msg => {
+                        this.jobStatus = msg;
+                        this.pollStatus();
+                        this.pollProgress();
+                    })
+                    .catch(err => this.jobStatus = 'Error: ' + err);
+                },
+
+                pollStatus() {
+                    setInterval(() => {
+                        fetch('/job/status')
+                            .then(res => res.json())
+                            .then(status => {
+                                this.jobStatus = status.status;
+                            });
+                    }, 3000);
+                },
+
+                pollProgress() {
+                    setInterval(() => {
+                        fetch('/progress')
+                            .then(res => res.json())
+                            .then(log => {
+                                this.progressLog = log;
+
+                                // Izvuci zadnji log za statistiku
+                                if(log.length > 0){
+                                    let lastLog = log[log.length - 1];
+                                    let matches = lastLog.match(/Processed (\d+) proteins, (\d+) peptides/);
+                                    if(matches){
+                                        this.proteinCount = matches[1];
+                                        this.peptideCount = matches[2];
+                                    }
+                                }
+                            });
+                    }, 3000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
