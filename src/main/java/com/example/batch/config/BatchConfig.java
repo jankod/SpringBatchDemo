@@ -6,14 +6,12 @@ import com.example.batch.param.JobParams;
 import com.example.batch.processor.ProteinToPeptidesProcessor;
 import com.example.batch.reader.ProteinStaxReader;
 import com.example.batch.writer.PeptideCsvWriter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.*;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
-import org.springframework.batch.item.ExecutionContext;
-import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.batch.BatchDataSource;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -34,6 +32,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 
+import org.springframework.batch.core.JobExecutionListener;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.util.StopWatch;
+import com.example.batch.util.TimeFormatter;
+
+@Slf4j
 @Configuration
 @EnableBatchProcessing()
 public class BatchConfig {
@@ -76,7 +80,7 @@ public class BatchConfig {
 
     @Bean
     @StepScope
-    public AbstractItemStreamItemReader<ProteinEntry> reader(JobParams params) throws Exception {
+    public ProteinStaxReader reader(JobParams params) throws Exception {
         return new ProteinStaxReader(params.getInputXmlGzPath());
     }
 
@@ -94,7 +98,7 @@ public class BatchConfig {
     @Bean
     public Step processXmlStep(JobRepository jobRepository,
                                PlatformTransactionManager transactionManager,
-                               AbstractItemStreamItemReader<ProteinEntry> reader,
+                               ProteinStaxReader reader,
                                ProteinToPeptidesProcessor processor,
                                PeptideCsvWriter writer,
                                TaskExecutor taskExecutor) {
@@ -110,8 +114,35 @@ public class BatchConfig {
     @Bean
     public Job processJob(JobRepository jobRepository, Step processXmlStep) {
         return new JobBuilder("processXmlJob", jobRepository)
+              .incrementer(new RunIdIncrementer())
+              .listener(jobExecutionListener())
               .start(processXmlStep)
               .build();
+    }
+
+    @Bean
+    public JobExecutionListener jobExecutionListener() {
+        return new JobExecutionListener() {
+            private StopWatch jobStopWatch;
+
+            @Override
+            public void beforeJob(JobExecution jobExecution) {
+                jobStopWatch = new StopWatch("Job Execution");
+                jobStopWatch.start();
+                log.info("Starting job: {}", jobExecution.getJobInstance().getJobName());
+            }
+
+            @Override
+            public void afterJob(JobExecution jobExecution) {
+                if (jobStopWatch != null) {
+                    jobStopWatch.stop();
+                    log.info("Job {} completed in: {} with status: {}",
+                          jobExecution.getJobInstance().getJobName(),
+                          TimeFormatter.formatStopWatch(jobStopWatch),
+                          jobExecution.getStatus());
+                }
+            }
+        };
     }
 
     @Bean
