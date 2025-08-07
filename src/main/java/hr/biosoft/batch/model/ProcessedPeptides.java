@@ -1,0 +1,16 @@
+package hr.biosoft.batch.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProcessedPeptides {
+    private String accession;
+    private String taxonomyId;
+    private List<Peptide> peptides;
+}
