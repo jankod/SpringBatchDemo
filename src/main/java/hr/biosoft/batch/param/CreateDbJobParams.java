@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class JobParams {
+public class CreateDbJobParams {
     private String inputXmlGzPath;
     private String outputCsvPath;
 }

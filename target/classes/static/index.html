@@ -12,6 +12,15 @@
         <h1 class="text-2xl mb-4">Spring Batch Job</h1>
 
         <div class="mb-4">
+            <label>Odaberi posao:</label>
+            <select x-model="jobName" class="border p-2 w-full">
+                <option value="processXmlJob">processXmlJob</option>
+                <option value="simpleJob">simpleJob</option>
+                <!-- Dodaj ovdje druge jobove po potrebi -->
+            </select>
+        </div>
+
+        <div class="mb-4">
             <label>Input XML Path:</label>
             <input type="text" x-model="inputPath" class="border p-2 w-full"/>
         </div>
@@ -50,6 +59,7 @@
     <script>
         function batchApp() {
             return {
+                jobName: 'processXmlJob',
                 inputPath: '/media/tag/D/digested-db/uniprot_sprot_bacteria.xml.gz',
                 outputPath: '/media/tag/D/digested-db/uniprot_sprot_bacteria.xml.gz.cvs',
                 jobStatus: 'Not Started',
@@ -58,7 +68,12 @@
                 peptideCount: 0,
 
                 startJob() {
-                    fetch(`/job/start?inputPath=${encodeURIComponent(this.inputPath)}&outputPath=${encodeURIComponent(this.outputPath)}`, {
+                    const params = new URLSearchParams({
+                        jobName: this.jobName,
+                        inputPath: this.inputPath,
+                        outputPath: this.outputPath
+                    });
+                    fetch(`/job/start?${params.toString()}`, {
                         method: 'POST'
                     })
                     .then(resp => resp.text())
@@ -72,7 +87,7 @@
 
                 pollStatus() {
                     setInterval(() => {
-                        fetch('/job/status')
+                        fetch(`/job/status?jobName=${encodeURIComponent(this.jobName)}`)
                             .then(res => res.json())
                             .then(status => {
                                 this.jobStatus = status.status;

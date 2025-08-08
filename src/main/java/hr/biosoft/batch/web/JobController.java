@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,8 +22,7 @@ public class JobController {
     private final JobExplorer jobExplorer;
     private final JobLauncher jobLauncher;
     private final JobService jobService;
-
-    private final Job job;
+    private final JobRegistry jobRegistry;
 
 
     @GetMapping("/jobs")
@@ -31,9 +31,9 @@ public class JobController {
     }
 
     @GetMapping("/job/status")
-    public Map<String, Object> getLatestJobStatus() {
+    public Map<String, Object> getLatestJobStatus(@RequestParam String jobName) {
         Map<String, Object> status = new HashMap<>();
-        List<JobInstance> instances = jobExplorer.getJobInstances("processXmlJob", 0, 1);
+        List<JobInstance> instances = jobExplorer.getJobInstances(jobName, 0, 1);
         if (instances.isEmpty()) {
             status.put("status", "NO_JOB_FOUND");
             return status;
@@ -56,23 +56,27 @@ public class JobController {
     }
 
     @PostMapping("/job/start")
-    public String startJobWithParams(@RequestParam String inputPath,
-                                     @RequestParam String outputPath) {
+    public String startJobWithParams(@RequestParam String jobName,
+                                     @RequestParam Map<String, String> allParams) {
         try {
-            JobParameters jobParameters = new JobParametersBuilder()
-                  .addString("inputPath", inputPath)
-                  .addString("outputPath", outputPath)
-                  .addLong("timestamp", System.currentTimeMillis()) // kako bi bio unikatan
-                  .toJobParameters();
+            Job job = jobRegistry.getJob(jobName);
 
-            log.debug("Starting job with parameters: {}", jobParameters);
+            JobParametersBuilder builder = new JobParametersBuilder();
+            allParams.forEach((key, value) -> {
+                if (!key.equals("jobName")) {
+                    builder.addString(key, value);
+                }
+            });
+            builder.addLong("timestamp", System.currentTimeMillis()); // unikatan parametar
 
+            JobParameters jobParameters = builder.toJobParameters();
+
+            log.debug("Pokrećem job '{}' s parametrima: {}", jobName, jobParameters);
 
             JobExecution execution = jobLauncher.run(job, jobParameters);
-            return "Job started with ID: " + execution.getId();
+            return "Job '" + jobName + "' pokrenut s ID: " + execution.getId();
         } catch (Exception e) {
-            return "Failed to start job: " + e.getMessage();
+            return "Neuspješno pokretanje joba '" + jobName + "': " + e.getMessage();
         }
     }
 }
-

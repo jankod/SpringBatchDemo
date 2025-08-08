@@ -2,18 +2,14 @@ package hr.biosoft.batch.config;
 
 import hr.biosoft.batch.model.ProcessedPeptides;
 import hr.biosoft.batch.model.ProteinEntry;
-import hr.biosoft.batch.param.JobParams;
+import hr.biosoft.batch.param.CreateDbJobParams;
 import hr.biosoft.batch.processor.ProteinToPeptidesProcessor;
 import hr.biosoft.batch.reader.ProteinStaxReader;
 import hr.biosoft.batch.writer.PeptideCsvWriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.*;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.batch.BatchDataSource;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.List;
@@ -21,7 +17,6 @@ import java.util.List;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -30,8 +25,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
-
 import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.util.StopWatch;
@@ -39,16 +32,15 @@ import hr.biosoft.batch.util.TimeFormatter;
 
 @Slf4j
 @Configuration
-@EnableBatchProcessing()
 public class CreateDbBatchConfig {
 
 
     @Bean
     @StepScope
-    public JobParams jobParams(
+    public CreateDbJobParams jobParams(
           @Value("#{jobParameters['inputPath']}") String inputPath,
           @Value("#{jobParameters['outputPath']}") String outputPath) {
-        return new JobParams(inputPath, outputPath);
+        return new CreateDbJobParams(inputPath, outputPath);
     }
 
 //    @BatchDataSource
@@ -89,7 +81,7 @@ public class CreateDbBatchConfig {
 
     @Bean
     @StepScope
-    public PeptideCsvWriter writer(JobParams params, List<String> progressLog) throws Exception {
+    public PeptideCsvWriter writer(CreateDbJobParams params, List<String> progressLog) throws Exception {
         return new PeptideCsvWriter(params.getOutputCsvPath(), progressLog, 100);
     }
 
